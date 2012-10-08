@@ -11,7 +11,8 @@ Drupal.wysiwyg.editor.attach.jwysiwyg = function(context, params, settings) {
 /**
  * Detach a single or all editors.
  */
-Drupal.wysiwyg.editor.detach.jwysiwyg = function(context, params) {
+Drupal.wysiwyg.editor.detach.jwysiwyg = function (context, params, trigger) {
+  trigger = trigger || 'unload';
   var $field = $('#' + params.field);
   var editor = $field.data('wysiwyg');
   if (typeof editor != 'undefined') {

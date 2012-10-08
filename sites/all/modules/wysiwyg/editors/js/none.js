@@ -33,9 +33,17 @@ Drupal.wysiwyg.editor.attach.none = function(context, params, settings) {
  *   only the editor instance in params.field should be detached. Otherwise,
  *   all editors should be detached and saved, so they can be submitted in
  *   AJAX/AHAH applications.
+ * @param trigger
+ *   (optional) A string describing why the editor is being detached. May be one
+ *   of 'unload' (default), 'move', or 'serialize'. Editors need to be destroyed
+ *   when their element is being removed from the DOM ('unload') or moved
+ *   ('move'). If detach was called simply because of an AJAX request to
+ *   serialize the form and send it to the server ('serialize'), we can leave
+ *   the WYSIWYG in place, and just update the underlying element with the new
+ *   text.
  */
-Drupal.wysiwyg.editor.detach.none = function(context, params) {
-  if (typeof params != 'undefined') {
+Drupal.wysiwyg.editor.detach.none = function (context, params, trigger) {
+  if (typeof params != 'undefined' && (trigger != 'serialize')) {
     var $wrapper = $('#' + params.field).parents('.form-textarea-wrapper:first');
     $wrapper.removeOnce('textarea').removeClass('.resizable-textarea')
       .find('.grippie').remove();

@@ -1,0 +1,13 @@
+name = Mobile App Services
+description = Provides service endpoints for content authoring from a mobile app.
+core = 7.x
+
+dependencies[] = entity
+dependencies[] = oauth_common
+dependencies[] = services
+dependencies[] = rest_server
+dependencies[] = services_oauth
+
+files[] = mast.ui.inc
+files[] = mast.class.inc
+files[] = tests/mast.test

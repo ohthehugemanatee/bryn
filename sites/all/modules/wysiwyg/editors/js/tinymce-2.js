@@ -67,7 +67,8 @@ Drupal.wysiwyg.editor.attach.tinymce = function(context, params, settings) {
  *
  * See Drupal.wysiwyg.editor.detach.none() for a full desciption of this hook.
  */
-Drupal.wysiwyg.editor.detach.tinymce = function(context, params) {
+Drupal.wysiwyg.editor.detach.tinymce = function (context, params, trigger) {
+  trigger = trigger || 'unload';
   if (typeof params != 'undefined') {
     tinyMCE.removeMCEControl(tinyMCE.getEditorId(params.field));
     $('#' + params.field).removeAttr('style');

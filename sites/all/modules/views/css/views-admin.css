@@ -25,6 +25,10 @@
 
 /* @group Inline lists */
 
+.horizontal-container {
+  float: left; /* LTR */
+}
+
 .horizontal > * {
   clear: none;
   float: left; /* LTR */
@@ -109,7 +113,6 @@
 
 .views-displays {
   clear: both;
-  float:left; /* LTR */
 }
 
 /* @end */
@@ -118,7 +121,6 @@
  *
  * The tabs that switch between sections
  */
-
  .views-displays .secondary {
    border-bottom: 0 none;
    margin: 0;
@@ -314,31 +316,7 @@ div.form-item-options-value-all {
 
 /* @end */
 
-/* @group Clearfix
- *
- * @see http://perishablepress.com/press/2009/12/06/new-clearfix-hack
- */
 
- /* Reset the formatting context for all modern browsers */
-.views-display-tab .fieldset-wrapper:after,
-ul.secondary:after {
-  clear: both;
-  content: " x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x ";
-  display: block;
-  font-size: xx-large;
-  height: 0 !important;
-  line-height: 0;
-  overflow: hidden;
-  visibility: hidden;
-}
-
-/* Reset the formatting context for IE */
-.views-display-tab .fieldset-wrapper,
-ul.secondary {
-  zoom: 1;
-}
-
-/* @end */
 
 /* @group Javascript dependent styling */
 

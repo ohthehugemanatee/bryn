@@ -38,13 +38,13 @@ Drupal.wysiwygInit = function() {
  *   A DOM element, supplied by Drupal.attachBehaviors().
  */
 Drupal.behaviors.attachWysiwyg = {
-  attach: function(context, settings) {
+  attach: function (context, settings) {
     // This breaks in Konqueror. Prevent it from running.
     if (/KDE/.test(navigator.vendor)) {
       return;
     }
 
-    $('.wysiwyg', context).once('wysiwyg', function() {
+    $('.wysiwyg', context).once('wysiwyg', function () {
       if (!this.id || typeof Drupal.settings.wysiwyg.triggers[this.id] === 'undefined') {
         return;
       }
@@ -78,6 +78,24 @@ Drupal.behaviors.attachWysiwyg = {
         }
         Drupal.wysiwygDetach(context, params[format]);
       });
+    });
+  },
+
+  detach: function (context, settings, trigger) {
+    var wysiwygs;
+    // The 'serialize' trigger indicates that we should simply update the
+    // underlying element with the new text, without destroying the editor.
+    if (trigger == 'serialize') {
+      // Removing the wysiwyg-processed class guarantees that the editor will
+      // be reattached. Only do this if we're planning to destroy the editor.
+      wysiwygs = $('.wysiwyg-processed', context);
+    }
+    else {
+      wysiwygs = $('.wysiwyg', context).removeOnce('wysiwyg');
+    }
+    wysiwygs.each(function () {
+      var params = Drupal.settings.wysiwyg.triggers[this.id];
+      Drupal.wysiwygDetach(context, params, trigger);
     });
   }
 };
@@ -119,7 +137,7 @@ Drupal.wysiwygAttach = function(context, params) {
     }
     // Attach editor, if enabled by default or last state was enabled.
     if (params.status) {
-      Drupal.wysiwyg.editor.attach[params.editor](context, params, (Drupal.settings.wysiwyg.configs[params.editor] ? jQuery.extend(true, {}, Drupal.settings.wysiwyg.configs[params.editor][params.format]) : {}));
+      Drupal.wysiwyg.editor.attach[params.editor](context, params, (Drupal.settings.wysiwyg.configs[params.editor] ? jQuery.extend(true, {}, Drupal.settings.wysiwyg.configs[params.editor][params.format][params.field]) : {}));
     }
     // Otherwise, attach default behaviors.
     else {
@@ -136,11 +154,13 @@ Drupal.wysiwygAttach = function(context, params) {
  *   A DOM element, supplied by Drupal.attachBehaviors().
  * @param params
  *   An object containing input format parameters.
+ * @param trigger
+ *   A string describing what is causing the editor to be detached.
  */
-Drupal.wysiwygDetach = function(context, params) {
+Drupal.wysiwygDetach = function (context, params, trigger) {
   var editor = Drupal.wysiwyg.instances[params.field].editor;
   if (jQuery.isFunction(Drupal.wysiwyg.editor.detach[editor])) {
-    Drupal.wysiwyg.editor.detach[editor](context, params);
+    Drupal.wysiwyg.editor.detach[editor](context, params, trigger);
   }
 };
 

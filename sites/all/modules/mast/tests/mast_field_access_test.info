@@ -1,0 +1,6 @@
+name = "MASt tests"
+description = "Support for tests relating to field access in MASt."
+package = Testing
+core = 7.x
+hidden = TRUE
+dependencies[] = mast

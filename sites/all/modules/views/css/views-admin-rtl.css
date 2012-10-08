@@ -5,6 +5,10 @@
 
 /* @group Inline lists */
 
+.horizontal-container {
+  float: right;
+}
+
 .horizontal > * {
   float: right;
 }
@@ -23,10 +27,6 @@
 
 .form-actions {
   float: left;
-}
-
-.views-displays {
-  float: right;
 }
 
 /* @end */

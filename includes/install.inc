@@ -576,16 +576,41 @@ class DatabaseTaskException extends Exception {
 }
 
 /**
- * Replace values in settings.php with values in the submitted array.
+ * Writes a settings.php file with content from default.settings.php.
+ *
+ * Settings values are replaced by values from the passed-in settings array.
  *
  * @param $settings
  *   An array of settings that need to be updated.
  */
 function drupal_rewrite_settings($settings = array(), $prefix = '') {
-  $default_settings = 'sites/default/default.settings.php';
+  $default_settings_file = 'sites/default/default.settings.php';
   drupal_static_reset('conf_path');
   $settings_file = conf_path(FALSE) . '/' . $prefix . 'settings.php';
 
+  $buffer = drupal_generate_settings_file_content($default_settings_file, $settings);
+  $fp = fopen(DRUPAL_ROOT . '/' . $settings_file, 'w');
+  if ($fp && fwrite($fp, $buffer) === FALSE) {
+    throw new Exception(st('Failed to modify %settings. Verify the file permissions.', array('%settings' => $settings_file)));
+  }
+}
+
+/**
+ * Generates content for a new settings.php file.
+ *
+ * Base content is taken from another settings.php file and replaced by values
+ * from the passed-in settings array.
+ *
+ * @param $base_file
+ *   A path to an existing settings.php file (e.g.,
+ *   'sites/default/default.settings.php').
+ * @param $settings
+ *   An array of settings that need to be updated.
+ *
+ * @return
+ *   A string that can be output to a new settings.php file.
+ */
+function drupal_generate_settings_file_content($base_file, $settings = array()) {
   // Build list of setting names and insert the values into the global namespace.
   $keys = array();
   foreach ($settings as $setting => $data) {
@@ -595,7 +620,7 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
 
   $buffer = NULL;
   $first = TRUE;
-  if ($fp = fopen(DRUPAL_ROOT . '/' . $default_settings, 'r')) {
+  if ($fp = fopen(DRUPAL_ROOT . '/' . $base_file, 'r')) {
     // Step line by line through settings.php.
     while (!feof($fp)) {
       $line = fgets($fp);
@@ -642,15 +667,12 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
         $buffer .= "\$$setting = " . var_export($data['value'], TRUE) . ";\n";
       }
     }
-
-    $fp = fopen(DRUPAL_ROOT . '/' . $settings_file, 'w');
-    if ($fp && fwrite($fp, $buffer) === FALSE) {
-      throw new Exception(st('Failed to modify %settings. Verify the file permissions.', array('%settings' => $settings_file)));
-    }
   }
   else {
-    throw new Exception(st('Failed to open %settings. Verify the file permissions.', array('%settings' => $default_settings)));
+    throw new Exception(st('Failed to open %settings. Verify the file permissions.', array('%settings' => $base_file)));
   }
+
+  return $buffer;
 }
 
 /**
@@ -999,7 +1021,6 @@ function drupal_install_fix_file($file, $mask, $message = TRUE) {
   }
 }
 
-
 /**
  * Send the user to a different installer page.
  *
@@ -1014,6 +1035,68 @@ function install_goto($path) {
   header('Location: ' . $base_url . '/' . $path);
   header('Cache-Control: no-cache'); // Not a permanent redirect.
   drupal_exit();
+}
+
+/**
+ * Returns the URL of the current script, with modified query parameters.
+ *
+ * This function can be called by low-level scripts (such as install.php and
+ * update.php) and returns the URL of the current script. Existing query
+ * parameters are preserved by default, but new ones can optionally be merged
+ * in.
+ *
+ * This function is used when the script must maintain certain query parameters
+ * over multiple page requests in order to work correctly. In such cases (for
+ * example, update.php, which requires the 'continue=1' parameter to remain in
+ * the URL throughout the update process if there are any requirement warnings
+ * that need to be bypassed), using this function to generate the URL for links
+ * to the next steps of the script ensures that the links will work correctly.
+ *
+ * @param $query
+ *   (optional) An array of query parameters to merge in to the existing ones.
+ *
+ * @return
+ *   The URL of the current script, with query parameters modified by the
+ *   passed-in $query. The URL is not sanitized, so it still needs to be run
+ *   through check_url() if it will be used as an HTML attribute value.
+ *
+ * @see drupal_requirements_url()
+ */
+function drupal_current_script_url($query = array()) {
+  $uri = $_SERVER['SCRIPT_NAME'];
+  $query = array_merge(drupal_get_query_parameters(), $query);
+  if (!empty($query)) {
+    $uri .= '?' . drupal_http_build_query($query);
+  }
+  return $uri;
+}
+
+/**
+ * Returns a URL for proceeding to the next page after a requirements problem.
+ *
+ * This function can be called by low-level scripts (such as install.php and
+ * update.php) and returns a URL that can be used to attempt to proceed to the
+ * next step of the script.
+ *
+ * @param $severity
+ *   The severity of the requirements problem, as returned by
+ *   drupal_requirements_severity().
+ *
+ * @return
+ *   A URL for attempting to proceed to the next step of the script. The URL is
+ *   not sanitized, so it still needs to be run through check_url() if it will
+ *   be used as an HTML attribute value.
+ *
+ * @see drupal_current_script_url()
+ */
+function drupal_requirements_url($severity) {
+  $query = array();
+  // If there are no errors, only warnings, append 'continue=1' to the URL so
+  // the user can bypass this screen on the next page load.
+  if ($severity == REQUIREMENT_WARNING) {
+    $query['continue'] = 1;
+  }
+  return drupal_current_script_url($query);
 }
 
 /**
@@ -1183,10 +1266,11 @@ function drupal_check_module($module) {
  *    dependencies[] = dblog
  * @endcode
  *
- * @param profile
+ * @param $profile
  *   Name of profile.
- * @param locale
+ * @param $locale
  *   Name of locale used (if any).
+ *
  * @return
  *   The info array.
  */

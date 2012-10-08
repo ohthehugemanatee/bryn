@@ -1,0 +1,6 @@
+name = "MASt module functional tests"
+description = "Support module for MASt-related testing."
+package = Testing
+core = 7.x
+hidden = TRUE
+dependencies[] = mast

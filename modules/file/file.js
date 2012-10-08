@@ -1,4 +1,3 @@
-
 /**
  * @file
  * Provides JavaScript additions to the managed file field type.
@@ -15,18 +14,27 @@
  */
 Drupal.behaviors.fileValidateAutoAttach = {
   attach: function (context, settings) {
+    var validateExtension = Drupal.file.validateExtension;
+    var selector, elements;
     if (settings.file && settings.file.elements) {
-      $.each(settings.file.elements, function(selector) {
-        var extensions = settings.file.elements[selector];
-        $(selector, context).bind('change', {extensions: extensions}, Drupal.file.validateExtension);
-      });
+      elements = settings.file.elements;
+      for (selector in elements) {
+        if (elements.hasOwnProperty(selector)) {
+          $(selector, context).bind('change', {extensions: elements[selector]}, validateExtension);
+        }
+      }
     }
   },
   detach: function (context, settings) {
+    var validateExtension = Drupal.file.validateExtension;
+    var selector, elements;
     if (settings.file && settings.file.elements) {
-      $.each(settings.file.elements, function(selector) {
-        $(selector, context).unbind('change', Drupal.file.validateExtension);
-      });
+      elements = settings.file.elements;
+      for (selector in elements) {
+        if (elements.hasOwnProperty(selector)) {
+          $(selector, context).unbind('change', validateExtension);
+        }
+      }
     }
   }
 };
@@ -77,7 +85,7 @@ Drupal.file = Drupal.file || {
           '%filename': this.value,
           '%extensions': extensionPattern.replace(/\|/g, ', ')
         });
-        $(this).parents('div.form-managed-file').prepend('<div class="messages error file-upload-js-error">' + error + '</div>');
+        $(this).closest('div.form-managed-file').prepend('<div class="messages error file-upload-js-error">' + error + '</div>');
         this.value = '';
         return false;
       }
@@ -96,8 +104,8 @@ Drupal.file = Drupal.file || {
 
     // Check if we're working with an "Upload" button.
     var $enabledFields = [];
-    if ($(this).parents('div.form-managed-file').size() > 0) {
-      $enabledFields = $(this).parents('div.form-managed-file').find('input.form-file');
+    if ($(this).closest('div.form-managed-file').length > 0) {
+      $enabledFields = $(this).closest('div.form-managed-file').find('input.form-file');
     }
 
     // Temporarily disable upload fields other than the one we're currently
@@ -111,7 +119,7 @@ Drupal.file = Drupal.file || {
     var $fieldsToTemporarilyDisable = $('div.form-managed-file input.form-file').not($enabledFields).not(':disabled');
     $fieldsToTemporarilyDisable.attr('disabled', 'disabled');
     setTimeout(function (){
-      $fieldsToTemporarilyDisable.attr('disabled', '');
+      $fieldsToTemporarilyDisable.attr('disabled', false);
     }, 1000);
   },
   /**
@@ -119,8 +127,8 @@ Drupal.file = Drupal.file || {
    */
   progressBar: function (event) {
     var clickedButton = this;
-    var $progressId = $(clickedButton).parents('div.form-managed-file').find('input.file-progress');
-    if ($progressId.size()) {
+    var $progressId = $(clickedButton).closest('div.form-managed-file').find('input.file-progress');
+    if ($progressId.length) {
       var originalName = $progressId.attr('name');
 
       // Replace the name with the required identifier.
@@ -133,7 +141,7 @@ Drupal.file = Drupal.file || {
     }
     // Show the progress bar if the upload takes longer than half a second.
     setTimeout(function () {
-      $(clickedButton).parents('div.form-managed-file').find('div.ajax-progress-bar').slideDown();
+      $(clickedButton).closest('div.form-managed-file').find('div.ajax-progress-bar').slideDown();
     }, 500);
   },
   /**

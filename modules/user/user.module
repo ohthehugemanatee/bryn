@@ -41,7 +41,7 @@ function user_help($path, $arg) {
     case 'admin/help#user':
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t('The User module allows users to register, log in, and log out. It also allows users with proper permissions to manage user roles (used to classify users) and permissions associated with those roles. For more information, see the online handbook entry for <a href="@user">User module</a>.', array('@user' => 'http://drupal.org/handbook/modules/user')) . '</p>';
+      $output .= '<p>' . t('The User module allows users to register, log in, and log out. It also allows users with proper permissions to manage user roles (used to classify users) and permissions associated with those roles. For more information, see the online handbook entry for <a href="@user">User module</a>.', array('@user' => 'http://drupal.org/documentation/modules/user')) . '</p>';
       $output .= '<h3>' . t('Uses') . '</h3>';
       $output .= '<dl>';
       $output .= '<dt>' . t('Creating and managing users') . '</dt>';
@@ -74,10 +74,26 @@ function user_help($path, $arg) {
 }
 
 /**
- * Invokes hook_user() in every module.
+ * Invokes a user hook in every module.
  *
  * We cannot use module_invoke() for this, because the arguments need to
  * be passed by reference.
+ *
+ * @param $type
+ *   A text string that controls which user hook to invoke.  Valid choices are:
+ *   - cancel: Invokes hook_user_cancel().
+ *   - insert: Invokes hook_user_insert().
+ *   - login: Invokes hook_user_login().
+ *   - presave: Invokes hook_user_presave().
+ *   - update: Invokes hook_user_update().
+ * @param $edit
+ *   An associative array variable containing form values to be passed
+ *   as the first parameter of the hook function.
+ * @param $account
+ *   The user account object to be passed as the second parameter of the hook
+ *   function.
+ * @param $category
+ *   The category of user information being acted upon.
  */
 function user_module_invoke($type, &$edit, $account, $category = NULL) {
   foreach (module_implements('user_' . $type) as $module) {
@@ -143,6 +159,10 @@ function user_entity_info() {
       'uri callback' => 'user_uri',
       'label callback' => 'format_username',
       'fieldable' => TRUE,
+      // $user->language is only the preferred user language for the user
+      // interface textual elements. As it is not necessarily related to the
+      // language assigned to fields, we do not define it as the entity language
+      // key.
       'entity keys' => array(
         'id' => 'uid',
       ),
@@ -195,24 +215,44 @@ function user_field_extra_fields() {
   $return['user']['user'] = array(
     'form' => array(
       'account' => array(
-        'label' => 'User name and password',
-        'description' => t('User module account form elements'),
+        'label' => t('User name and password'),
+        'description' => t('User module account form elements.'),
         'weight' => -10,
       ),
       'timezone' => array(
-        'label' => 'Timezone',
+        'label' => t('Timezone'),
         'description' => t('User module timezone form element.'),
         'weight' => 6,
       ),
     ),
     'display' => array(
       'summary' => array(
-        'label' => 'History',
+        'label' => t('History'),
         'description' => t('User module history view element.'),
         'weight' => 5,
       ),
     ),
   );
+
+  if (variable_get('user_pictures', 1) == 1) {
+    $return['user']['user']['form'] += array(
+      'picture' => array(
+        'label' => 'User picture',
+        'description' => t('User module picture form element.'),
+        'weight' => 2,
+      ),
+    );
+  }
+
+  if (variable_get('user_signatures', 1) == 1) {
+    $return['user']['user']['form'] += array(
+      'signature_settings' => array(
+        'label' => 'User signature',
+        'description' => t('User module signature form element.'),
+        'weight' => 1,
+      ),
+    );
+  }
 
   return $return;
 }
@@ -476,6 +516,10 @@ function user_save($account, $edit = array(), $category = 'account') {
           file_usage_delete($account->original->picture, 'user', 'user', $account->uid);
           file_delete($account->original->picture);
         }
+      }
+      elseif (isset($edit['picture_delete']) && $edit['picture_delete']) {
+        file_usage_delete($account->original->picture, 'user', 'user', $account->uid);
+        file_delete($account->original->picture);
       }
       $account->picture = empty($account->picture->fid) ? 0 : $account->picture->fid;
 
@@ -799,7 +843,12 @@ function user_access($string, $account = NULL) {
 /**
  * Checks for usernames blocked by user administration.
  *
- * @return boolean TRUE for blocked users, FALSE for active.
+ * @param $name
+ *   A string containing a name of the user.
+ *
+ * @return
+ *   Object with property 'name' (the user name), if the user is blocked;
+ *   FALSE if the user is not blocked.
  */
 function user_is_blocked($name) {
   return db_select('users')
@@ -991,6 +1040,7 @@ function user_account_form(&$form, &$form_state) {
 
   // Account information.
   $form['account'] = array(
+    '#type'   => 'container',
     '#weight' => -10,
   );
   // Only show name field on registration form or user can change own username.
@@ -1049,6 +1099,7 @@ function user_account_form(&$form, &$form_state) {
         '#access' => !empty($protected_values),
         '#description' => $current_pass_description,
         '#weight' => -5,
+        '#attributes' => array('autocomplete' => 'off'),
       );
       $form['#validate'][] = 'user_validate_current_pass';
     }
@@ -1264,7 +1315,7 @@ function user_user_categories() {
 }
 
 function user_login_block($form) {
-  $form['#action'] = url($_GET['q'], array('query' => drupal_get_destination()));
+  $form['#action'] = url(current_path(), array('query' => drupal_get_destination(), 'external' => FALSE));
   $form['#id'] = 'user-login-form';
   $form['#validate'] = user_login_default_validators();
   $form['#submit'][] = 'user_login_submit';
@@ -2287,6 +2338,27 @@ function user_cancel_url($account) {
   return url("user/$account->uid/cancel/confirm/$timestamp/" . user_pass_rehash($account->pass, $timestamp, $account->login), array('absolute' => TRUE));
 }
 
+/**
+ * Creates a unique hash value for use in time-dependent per-user URLs.
+ *
+ * This hash is normally used to build a unique and secure URL that is sent to
+ * the user by email for purposes such as resetting the user's password. In
+ * order to validate the URL, the same hash can be generated again, from the
+ * same information, and compared to the hash value from the URL. The URL
+ * normally contains both the time stamp and the numeric user ID. The login
+ * name and hashed password are retrieved from the database as necessary. For a
+ * usage example, see user_cancel_url() and user_cancel_confirm().
+ *
+ * @param $password
+ *   The hashed user account password value.
+ * @param $timestamp
+ *   A unix timestamp.
+ * @param $login
+ *   The user account login name.
+ *
+ * @return
+ *   A string that is safe for use in URLs and SQL statements.
+ */
 function user_pass_rehash($password, $timestamp, $login) {
   return drupal_hmac_base64($timestamp . $login, drupal_get_hash_salt() . $password);
 }
@@ -2700,7 +2772,7 @@ Your account on [site:name] has been canceled.
   if ($replace) {
     // We do not sanitize the token replacement, since the output of this
     // replacement is intended for an e-mail message, not a web browser.
-    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens', 'sanitize' => FALSE));
+    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens', 'sanitize' => FALSE, 'clear' => TRUE));
   }
 
   return $text;
@@ -3349,15 +3421,6 @@ function user_build_filter_query(SelectQuery $query) {
 }
 
 /**
- * Implements hook_forms().
- */
-function user_forms() {
-  $forms['user_admin_access_add_form']['callback'] = 'user_admin_access_form';
-  $forms['user_admin_access_edit_form']['callback'] = 'user_admin_access_form';
-  return $forms;
-}
-
-/**
  * Implements hook_comment_view().
  */
 function user_comment_view($comment) {
@@ -3427,23 +3490,27 @@ function user_preferred_language($account, $default = NULL) {
  * @see drupal_mail()
  *
  * @param $op
- *  The operation being performed on the account. Possible values:
- *  'register_admin_created': Welcome message for user created by the admin
- *  'register_no_approval_required': Welcome message when user self-registers
- *  'register_pending_approval': Welcome message, user pending admin approval
- *  'password_reset': Password recovery request
- *  'status_activated': Account activated
- *  'status_blocked': Account blocked
- *  'cancel_confirm': Account cancellation request
- *  'status_canceled': Account canceled
+ *   The operation being performed on the account. Possible values:
+ *   - 'register_admin_created': Welcome message for user created by the admin.
+ *   - 'register_no_approval_required': Welcome message when user
+ *     self-registers.
+ *   - 'register_pending_approval': Welcome message, user pending admin
+ *     approval.
+ *   - 'password_reset': Password recovery request.
+ *   - 'status_activated': Account activated.
+ *   - 'status_blocked': Account blocked.
+ *   - 'cancel_confirm': Account cancellation request.
+ *   - 'status_canceled': Account canceled.
  *
  * @param $account
- *  The user object of the account being notified. Must contain at
- *  least the fields 'uid', 'name', and 'mail'.
+ *   The user object of the account being notified. Must contain at
+ *   least the fields 'uid', 'name', and 'mail'.
  * @param $language
- *  Optional language to use for the notification, overriding account language.
+ *   Optional language to use for the notification, overriding account language.
+ *
  * @return
- *  The return value from drupal_mail_system()->mail(), if ends up being called.
+ *   The return value from drupal_mail_system()->mail(), if ends up being
+ *   called.
  */
 function _user_mail_notify($op, $account, $language = NULL) {
   // By default, we always notify except for canceled and blocked.
@@ -3453,7 +3520,7 @@ function _user_mail_notify($op, $account, $language = NULL) {
     $params['account'] = $account;
     $language = $language ? $language : user_preferred_language($account);
     $mail = drupal_mail('user', $op, $account->mail, $language, $params);
-    if ($op == 'register_pending_approval') {
+    if ($op == 'register_pending_approval' && variable_get('user_mail_register_pending_approval_admin_notify', TRUE)) {
       // If a user registered requiring admin approval, notify the admin, too.
       // We use the site default language for this.
       drupal_mail('user', 'register_pending_approval_admin', variable_get('site_mail', ini_get('sendmail_from')), language_default(), $params);
@@ -3645,6 +3712,14 @@ function user_register_form($form, &$form_state) {
 
   $admin = user_access('administer users');
 
+  // Pass access information to the submit handler. Running an access check
+  // inside the submit function interferes with form processing and breaks
+  // hook_form_alter().
+  $form['administer_users'] = array(
+     '#type' => 'value',
+     '#value' => $admin,
+  );
+
   // If we aren't admin but already logged on, go to the user page instead.
   if (!$admin && $user->uid) {
     drupal_goto('user/' . $user->uid);
@@ -3661,7 +3736,8 @@ function user_register_form($form, &$form_state) {
 
   // Attach field widgets, and hide the ones where the 'user_register_form'
   // setting is not on.
-  field_attach_form('user', $form['#user'], $form, $form_state);
+  $langcode = entity_language('user', $form['#user']);
+  field_attach_form('user', $form['#user'], $form, $form_state, $langcode);
   foreach (field_info_instances('user', 'user') as $field_name => $instance) {
     if (empty($instance['settings']['user_register_form'])) {
       $form[$field_name]['#access'] = FALSE;
@@ -3703,7 +3779,7 @@ function user_register_validate($form, &$form_state) {
  * @see user_register_form()
  */
 function user_register_submit($form, &$form_state) {
-  $admin = user_access('administer users');
+  $admin = $form_state['values']['administer_users'];
 
   if (!variable_get('user_email_verification', TRUE) || $admin) {
     $pass = $form_state['values']['pass'];

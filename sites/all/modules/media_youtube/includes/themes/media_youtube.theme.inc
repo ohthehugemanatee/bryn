@@ -22,6 +22,7 @@ function media_youtube_preprocess_media_youtube_video(&$variables) {
   $variables['fullscreen'] = isset($variables['fullscreen']) ? $variables['fullscreen'] : media_youtube_variable_get('fullscreen');
   $variables['autoplay'] = $variables['autoplay'] ? 1 : 0;
   $variables['fullscreen'] = $variables['fullscreen'] ? 'true' : 'false';
+  $variables['wmode'] = isset($variables['wmode']) ? $variables['wmode'] : media_youtube_variable_get('wmode');
 
   $variables['wrapper_id'] = 'media_youtube_' . $variables['video_id'] . '_' . $variables['id'];
 
@@ -31,37 +32,32 @@ function media_youtube_preprocess_media_youtube_video(&$variables) {
     <object width="{$variables['width']}" height="{$variables['height']}">
       <param name="movie" value="http://www.youtube.com/v/{$variables['video_id']}"></param>
       <param name="allowFullScreen" value="{$variables['fullscreen']}"></param>
-      <param name="wmode" value="transparent" />
-      <embed src="http://www.youtube.com/v/{$variables['video_id']}" type="application/x-shockwave-flash" width="{$variables['width']}" height="{$variables['height']}" allowfullscreen="{$variables['fullscreen']}"></embed>
+      <param name="wmode" value="{$variables['wmode']}" />
+      <embed src="http://www.youtube.com/v/{$variables['video_id']}" type="application/x-shockwave-flash" width="{$variables['width']}" height="{$variables['height']}" allowfullscreen="{$variables['fullscreen']}" wmode="{$variables['wmode']}"></embed>
     </object>
 OUTPUT;
 
-  // @todo Replace this inline JavaScript with at least calls to
-  //   drupal_add_js()/drupal_get_js(), and ideally, with a behavior. Keep
-  //   in mind that the solution needs to work when inside a colorbox or
-  //   otherwise in an AJAX response, but that should now be possible in D7.
-  $iframe_id = drupal_json_encode($variables['wrapper_id'] .'_iframe');
-  $wrapper_id = drupal_json_encode($variables['wrapper_id']);
-  $JSObject = 'Drupal.settings.media_youtube[' . $wrapper_id . ']';
-  $variables['output'] .= <<<OUTPUT
-    <script type="text/javascript">
-      if (Drupal.settings && Drupal.media_youtube) {
-        Drupal.settings.media_youtube = Drupal.settings.media_youtube || {};
-        $JSObject = {};
-        $JSObject.width = {$variables['width']};
-        $JSObject.height = {$variables['height']};
-        $JSObject.video_id = "{$variables['video_id']}";
-        $JSObject.fullscreen = {$variables['fullscreen']};
-        $JSObject.id = $iframe_id;
-        $JSObject.options = { autoplay: {$variables['autoplay']} };
-        Drupal.media_youtube.insertEmbed($wrapper_id);
-      }
-    </script>
-OUTPUT;
-
+  // Pass the settings to replace the object tag with an iframe.
+  $settings = array(
+    'media_youtube' => array(
+      $variables['wrapper_id'] => array(
+        'video_id' => $variables['video_id'],
+        'fullscreen' => $variables['fullscreen'],
+        'id' => $variables['wrapper_id'] .'_iframe',
+      ),
+    ),
+  );
+  if ($variables['autoplay']) {
+    $settings['media_youtube'][$variables['wrapper_id']]['options'] = array(
+      'autoplay' => $variables['autoplay'],
+    );
+  }
+  drupal_add_js($settings, 'setting');
   drupal_add_js(drupal_get_path('module', 'media_youtube') . '/js/media_youtube.js');
   drupal_add_css(drupal_get_path('module', 'media_youtube') . '/css/media_youtube.css');
   drupal_add_js(drupal_get_path('module', 'media_youtube') . '/js/flash_detect_min.js');
+  // Add the media embed fluid sizing library.
+  drupal_add_library('media', 'media_embed');
 }
 
 function theme_media_youtube_field_formatter_styles($variables) {

@@ -105,6 +105,7 @@ function media_youtube_variable_default($name = NULL) {
       'height' =>340,
       'autoplay' => FALSE,
       'fullscreen' => TRUE,
+      'wmode' => 'transparent',
       'preview_uri' => 'youtube://v/-jubiv7QUco',
     );
   }
