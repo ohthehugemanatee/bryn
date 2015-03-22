@@ -77,9 +77,9 @@ function ctools_css_store($id, $css, $filter = TRUE) {
 
   $filename = ctools_css_cache($css, $filter);
 
-  db_insert('ctools_css_cache')
+  db_merge('ctools_css_cache')
+    ->key(array('cid' => $id))
     ->fields(array(
-      'cid' => $id,
       'filename' => $filename,
       'css' => $css,
       'filter' => intval($filter),
@@ -284,8 +284,9 @@ function ctools_css_disassemble($css) {
   $disassembled_css = array();
   // Remove comments.
   $css = preg_replace("/\/\*(.*)?\*\//Usi", "", $css);
-  // Split out each statement
-  $statements = preg_split('/[;}]/', $css);
+  // Split out each statement. Match either a right curly brace or a semi-colon
+  // that precedes a left curly brace with no right curly brace separating them.
+  $statements = preg_split('/}|;(?=[^}]*{)/', $css);
 
   // If we have any statements, parse them.
   if (!empty($statements)) {

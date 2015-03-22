@@ -1,9 +1,31 @@
+
 var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 
 // Allow other JavaScript libraries to use $.
 jQuery.noConflict();
 
 (function ($) {
+
+/**
+ * Override jQuery.fn.init to guard against XSS attacks.
+ *
+ * See http://bugs.jquery.com/ticket/9521
+ */
+var jquery_init = $.fn.init;
+$.fn.init = function (selector, context, rootjQuery) {
+  // If the string contains a "#" before a "<", treat it as invalid HTML.
+  if (selector && typeof selector === 'string') {
+    var hash_position = selector.indexOf('#');
+    if (hash_position >= 0) {
+      var bracket_position = selector.indexOf('<');
+      if (bracket_position > hash_position) {
+        throw 'Syntax error, unrecognized expression: ' + selector;
+      }
+    }
+  }
+  return jquery_init.call(this, selector, context, rootjQuery);
+};
+$.fn.init.prototype = jquery_init.prototype;
 
 /**
  * Attach all registered behaviors to a page element.
@@ -48,13 +70,12 @@ jQuery.noConflict();
 Drupal.attachBehaviors = function (context, settings) {
   context = context || document;
   settings = settings || Drupal.settings;
-  var i, behaviors = Drupal.behaviors;
   // Execute all of them.
-  for (i in behaviors) {
-    if (behaviors.hasOwnProperty(i) && typeof behaviors[i].attach === 'function') {
-      behaviors[i].attach(context, settings);
+  $.each(Drupal.behaviors, function () {
+    if ($.isFunction(this.attach)) {
+      this.attach(context, settings);
     }
-  }
+  });
 };
 
 /**
@@ -101,13 +122,12 @@ Drupal.detachBehaviors = function (context, settings, trigger) {
   context = context || document;
   settings = settings || Drupal.settings;
   trigger = trigger || 'unload';
-  var i, behaviors = Drupal.behaviors;
   // Execute all of them.
-  for (i in behaviors) {
-    if (behaviors.hasOwnProperty(i) && typeof behaviors[i].detach === 'function') {
-      behaviors[i].detach(context, settings, trigger);
+  $.each(Drupal.behaviors, function () {
+    if ($.isFunction(this.detach)) {
+      this.detach(context, settings, trigger);
     }
-  }
+  });
 };
 
 /**

@@ -11,7 +11,7 @@
 function media_internet_media_browser_plugin_info() {
   $plugins = array();
 
-  if (user_access('administer media') || user_access('add media from remote sources')) {
+  if (media_internet_access()) {
     $plugins['media_internet'] = array(
       '#weight' => -10,
     );
@@ -34,17 +34,13 @@ function media_internet_media_browser_plugin_view($plugin_name, $params) {
     case 'media_internet':
       // @todo: implement the multiselect argument here.
       $from_web_form = drupal_get_form('media_internet_add',  $types, $multiselect);
-      $plugin = array(
+      return array(
         '#title' => t('Web'),
         'form' => array($from_web_form),
         '#attached' => array(
           //'js' => array($path . '/js/plugins/media.fromurl.js'),
         ),
       );
-      // If we're redisplaying this form after a validation error, set it to be
-      // the active tab in the media browser.
-      $plugin['#settings']['active'] = media_form_has_errors($from_web_form);
-      return $plugin;
       break;
   }
 

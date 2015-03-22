@@ -55,13 +55,11 @@ function media_media_browser_plugin_view($plugin_name, $params) {
 
       module_load_include('inc', 'media', 'includes/media.pages');
       $upload_form = drupal_get_form($upload_form_id, $params);
-      $plugin = array(
+      return array(
         '#title' => t('Upload'),
         'form' => array($upload_form),
         '#attached' => $attached,
-        '#settings' => array('active' => media_form_has_errors($upload_form)),
       );
-      return $plugin;
       break;
     case 'library':
       return array(

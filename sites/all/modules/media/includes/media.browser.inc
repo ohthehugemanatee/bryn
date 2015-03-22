@@ -76,26 +76,17 @@ function media_browser($selected = NULL) {
     //Add any JS settings
     $browser_settings[$key] = isset($plugin['#settings']) ? $plugin['#settings'] : array();
 
-    $tab_id = "media-tab-$key";
-    if (isset($plugin['#callback'])) {
-      // If this is a "ajax" style tab, where the plugin provides a callback
-      // URL for the tab's content, add that callback URL to the link.
-      $href = $plugin['#callback'];
-    }
-    else {
-      // For regular plugins that provide HTML content, add a link fragment
-      // as the href, so jQuery UI Tabs has something to work with.
-      $href = '#' . $tab_id;
-    }
-    $tabs[] = "<a id='{$tab_id}-link' href='$href'><span>{$plugin['#title']}</span></a>";
+    // If this is a "ajax" style tab, add the href, otherwise an id.
+    $href = isset($plugin['#callback']) ? $plugin['#callback'] : "#media-tab-$key";
+    $tabs[] = "<a href='$href'><span>{$plugin['#title']}</span></a>";
 
     // Create a div for each tab's content.
     $plugin['#prefix'] = <<<EOS
-    <div class="media-browser-tab" id="$tab_id">
+    <div class="media-browser-tab" id="media-tab-$key">
 EOS;
     $plugin['#suffix'] = <<<EOS
     </div>
-    <!-- End #$tab_id -->
+    <!-- End #media-tab-$key -->
 EOS;
   }
 

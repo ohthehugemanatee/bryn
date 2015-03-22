@@ -247,7 +247,6 @@ function file_view_file($file, $displays = 'default', $langcode = NULL) {
   // If none of the configured formatters were able to display the file, attempt
   // to display the file using the file type's default view callback.
   if (!isset($element)) {
-    $display = NULL;
     $file_type_info = file_info_file_types($file->type);
     if (isset($file_type_info['default view callback']) && ($function = $file_type_info['default view callback']) && function_exists($function)) {
       $element = $function($file, $view_mode, $langcode);
@@ -260,10 +259,8 @@ function file_view_file($file, $displays = 'default', $langcode = NULL) {
     $element += array(
       '#file' => $file,
       '#view_mode' => $view_mode,
-      '#display' => $display,
       '#language' => $langcode,
     );
-    drupal_alter('file_view_file', $element);
     return $element;
   }
 }

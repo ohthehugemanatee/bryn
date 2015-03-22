@@ -15,15 +15,6 @@
 namespace('Drupal.media.popups');
 
 /**
- * Returns the element that triggered an event. Takes into account varying
- * browser support for event source representation.
- */
-function getEventSource (event) {
-  // Use the event's srcElement property if it exists. This will satisfy IE.
-  return event.srcElement || event.target || null;
-}
-
-/**
  * Media browser popup. Creates a media browser dialog.
  *
  * @param {function}
@@ -65,28 +56,12 @@ Drupal.media.popups.mediaBrowser = function (onSelect, globalOptions, pluginOpti
 
   browserSrc += '&' + $.param(params);
   var mediaIframe = Drupal.media.popups.getPopupIframe(browserSrc, 'mediaBrowser');
-  var frame;
-  // Get the iframe DOM element from the jQuery object.
-  if (mediaIframe) {
-    frame = mediaIframe.get(0);
-  }
   // Attach the onLoad event
-  if (frame) {
-    // Internet Explorer needs us to use attachEvent() to register an onload
-    // hanlder on an iframe.
-    if (frame.attachEvent) {
-      frame.attachEvent('onload', options.widget.onLoad);
-    }
-    // All other browsers support accessing the onload property of the iframe
-    // directly.
-    else {
-      frame.onload = options.widget.onLoad;
-    }
-  }
-
+  mediaIframe.bind('load', options, options.widget.onLoad);
   /**
    * Setting up the modal dialog
    */
+
   var ok = 'OK';
   var cancel = 'Cancel';
   var notSelected = 'You have not selected anything!';
@@ -107,13 +82,11 @@ Drupal.media.popups.mediaBrowser = function (onSelect, globalOptions, pluginOpti
       return;
     }
     onSelect(selected);
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   dialogOptions.buttons[cancel] = function () {
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   Drupal.media.popups.setDialogPadding(mediaIframe.dialog(dialogOptions));
@@ -123,15 +96,12 @@ Drupal.media.popups.mediaBrowser = function (onSelect, globalOptions, pluginOpti
   return mediaIframe;
 };
 
-/**
- * On load of the media browser iframe, automatically click the OK button.
- */
 Drupal.media.popups.mediaBrowser.mediaBrowserOnLoad = function (e) {
-  var source = getEventSource(e);
-  if (source && source.contentWindow.Drupal.media.browser.selectedMedia.length > 0) {
+  var options = e.data;
+  if (this.contentWindow.Drupal.media.browser.selectedMedia.length > 0) {
     var ok = (Drupal && Drupal.t) ? Drupal.t('OK') : 'OK';
-    var ok_func = $(source).dialog('option', 'buttons')[ok];
-    ok_func.call(source);
+    var ok_func = $(this).dialog('option', 'buttons')[ok];
+    ok_func.call(this);
     return;
   }
 };
@@ -157,8 +127,7 @@ Drupal.media.popups.mediaBrowser.finalizeSelection = function () {
     return;
   }
   onSelect(selected);
-  $(this).dialog("destroy");
-  $(this).remove();
+  $(this).dialog("close");
 }
 
 /**
@@ -209,13 +178,11 @@ Drupal.media.popups.mediaStyleSelector = function (mediaFile, onSelect, options)
       return;
     }
     onSelect(formattedMedia);
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   dialogOptions.buttons[cancel] = function () {
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   Drupal.media.popups.setDialogPadding(mediaIframe.dialog(dialogOptions));
@@ -279,22 +246,17 @@ Drupal.media.popups.mediaFieldEditor = function (fid, onSelect, options) {
   var dialogOptions = Drupal.media.popups.getDialogOptions();
 
   dialogOptions.buttons[ok] = function () {
-    alert('hell yeah');
-    return "poo";
-
     var formattedMedia = this.contentWindow.Drupal.media.formatForm.getFormattedMedia();
     if (!formattedMedia) {
       alert(notSelected);
       return;
     }
     onSelect(formattedMedia);
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   dialogOptions.buttons[cancel] = function () {
-    $(this).dialog("destroy");
-    $(this).remove();
+    $(this).dialog("close");
   };
 
   Drupal.media.popups.setDialogPadding(mediaIframe.dialog(dialogOptions));
@@ -338,6 +300,10 @@ Drupal.media.popups.getDialogOptions = function () {
     overlay: {
       backgroundColor: '#000000',
       opacity: 0.4
+    },
+    zIndex: 10000,
+    close: function (event, ui) {
+      $(event.target).remove();
     }
   };
 };
@@ -365,7 +331,7 @@ Drupal.media.popups.setDialogPadding = function (dialogElement) {
  * Get an iframe to serve as the dialog's contents. Common to both plugins.
  */
 Drupal.media.popups.getPopupIframe = function (src, id, options) {
-  var defaults = {width: '800px', scrolling: 'no'};
+  var defaults = {width: '800px', scrolling: 'auto'};
   var options = $.extend({}, defaults, options);
 
   return $('<iframe class="media-modal-frame"/>')
